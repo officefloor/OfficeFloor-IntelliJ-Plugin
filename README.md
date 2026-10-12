@@ -151,10 +151,18 @@ be done by the plugin's owner:
    to generate a chain and key, then add the repository secrets
    `CERTIFICATE_CHAIN`, `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`.
 
-After that, each new release is automated: bump `pluginVersion` in
-`gradle.properties`, publish a GitHub Release, and the workflow signs and
-uploads the new version. You can also run it from the Actions tab via
-*workflow_dispatch*, or publish locally with the same environment variables set:
+After that, each new release is automated. Two ways to trigger it:
+
+- **Publish a GitHub Release** (after bumping `pluginVersion` in
+  `gradle.properties`). The current version is published as-is.
+- **Run it from the Actions tab** (*Release → Run workflow*). Leave `auto_bump`
+  off to publish the current `pluginVersion`, or turn it on to bump the version
+  first. `bump_level` chooses `patch` (default), `minor` or `major`; the workflow
+  updates `gradle.properties` and commits the new version back to `main` before
+  it signs and uploads.
+
+Either way the workflow runs `verifyPlugin`, signs, and uploads. You can also
+publish locally with the same environment variables set:
 
 ```bash
 PUBLISH_TOKEN=... ./gradlew publishPlugin

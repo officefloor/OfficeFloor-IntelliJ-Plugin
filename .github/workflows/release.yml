@@ -1,17 +1,31 @@
 name: Release
 
 # Publishes the plugin to JetBrains Marketplace when a GitHub Release is
-# published (or when run manually). The FIRST version of a new plugin must be
+# published, or on manual dispatch. The FIRST version of a new plugin must be
 # uploaded manually at https://plugins.jetbrains.com/plugin/add and pass
 # moderation before this automated path works. See README "Publishing".
+#
+# On manual dispatch you can optionally auto-bump pluginVersion first. When
+# auto_bump is false (and always on a release), the current pluginVersion in
+# gradle.properties is published as-is.
 
 on:
   release:
     types: [ published ]
   workflow_dispatch:
+    inputs:
+      auto_bump:
+        description: "Bump pluginVersion before publishing (otherwise publish the current pluginVersion)"
+        type: boolean
+        default: false
+      bump_level:
+        description: "Which part to bump when auto_bump is true"
+        type: choice
+        options: [ patch, minor, major ]
+        default: patch
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -20,6 +34,27 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
+
+      - name: Bump pluginVersion
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_bump }}
+        run: |
+          set -euo pipefail
+          current=$(grep -E '^pluginVersion[[:space:]]*=' gradle.properties | sed -E 's/^pluginVersion[[:space:]]*=[[:space:]]*//')
+          base="${current%%-*}"
+          IFS='.' read -r major minor patch <<< "$base"
+          major="${major:-0}"; minor="${minor:-0}"; patch="${patch:-0}"
+          case "${{ inputs.bump_level }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          next="${major}.${minor}.${patch}"
+          echo "Bumping pluginVersion: ${current} -> ${next}"
+          sed -i -E "s/^pluginVersion[[:space:]]*=.*/pluginVersion = ${next}/" gradle.properties
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump pluginVersion to ${next} [skip ci]"
+          git push
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

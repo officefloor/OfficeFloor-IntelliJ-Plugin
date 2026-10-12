@@ -33,7 +33,8 @@ HTTP endpoints are derived from the file location under a `rest/` directory
 
 ## Control flow and data flow
 
-Two independent toolbar toggles control what is drawn; either or both can be on:
+A collapsible control panel floats over the top-right of the diagram. Two
+independent check boxes control what is drawn; either or both can be on:
 
 - **Control flow** (on by default): the `next` / `outputs` / `escalations`
   connections — where the pipeline directs next.
@@ -89,7 +90,8 @@ OfficeFloor project such as `tutorials/native/core/VariableHttpServer` (whose
 - **Double-click a node** → jump to its declaration in the YAML.
 - **Click a connection** → jump to the `next` / `outputs` / `escalations` entry
   that declares it.
-- **Ctrl/Cmd + mouse wheel** → zoom. The toolbar has zoom and *Fit* buttons.
+- **Ctrl/Cmd + mouse wheel** → zoom. The floating control panel (top-right, and
+  collapsible) has zoom and *Fit* buttons.
 
 ## Building & running
 

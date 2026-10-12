@@ -1,25 +1,24 @@
 package net.officefloor.intellij.flow.editor;
 
-import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.Map;
 
 import javax.swing.JComponent;
-import javax.swing.JPanel;
-import javax.swing.JToggleButton;
-import javax.swing.JToolBar;
+import javax.swing.JLayeredPane;
 import javax.swing.SwingConstants;
-
-import java.util.Map;
 
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorLocation;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.UserDataHolderBase;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -38,22 +37,26 @@ import net.officefloor.intellij.flow.model.VariableAccess;
 import net.officefloor.intellij.flow.parser.ComposeYamlParser;
 import net.officefloor.intellij.flow.parser.FunctionMetaData;
 import net.officefloor.intellij.flow.parser.MetaDataEnricher;
+import net.officefloor.intellij.flow.ui.FlowControlPanel;
 import net.officefloor.intellij.flow.ui.FlowDiagramPanel;
 
 /**
  * The "Flow" editor tab: renders an OfficeFloor compose/activity YAML file as an
  * auto-laid-out flow diagram, with click-to-navigate back to the YAML (single
  * click) or to the Java class/method (double click).
+ *
+ * <p>
+ * The controls live in a collapsible panel floating over the top-right of the
+ * diagram, so they do not consume a toolbar row above the graph.
  */
 public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor {
 
 	private final Project project;
 	private final VirtualFile file;
-	private final JPanel root = new JPanel(new BorderLayout());
+	private final JLayeredPane root = new JLayeredPane();
 	private final JBScrollPane scrollPane = new JBScrollPane();
 	private final PropertyChangeSupport changeSupport = new PropertyChangeSupport(this);
-	private final JToggleButton controlFlowToggle = new JToggleButton("Control flow", true);
-	private final JToggleButton dataFlowToggle = new JToggleButton("Data flow");
+	private final FlowControlPanel controlPanel;
 
 	private FlowDiagramPanel diagramPanel;
 	private FlowGraph graph;
@@ -70,50 +73,68 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 		this.project = project;
 		this.file = file;
 
-		JToolBar toolbar = new JToolBar();
-		toolbar.setFloatable(false);
-		toolbar.setBorder(JBUI.Borders.empty(2, 4));
-		toolbar.add(button("−", "Zoom out", () -> zoom(1 / 1.15)));
-		toolbar.add(button("+", "Zoom in", () -> zoom(1.15)));
-		toolbar.add(button("Fit", "Zoom to fit", this::fit));
-		toolbar.add(button("Refresh", "Re-read the file", this::rebuild));
-		toolbar.addSeparator();
+		this.controlPanel = new FlowControlPanel(this.showControlFlow, this.showDataFlow,
+				new FlowControlPanel.Listener() {
+					@Override
+					public void onControlFlow(boolean selected) {
+						FlowDiagramEditor.this.showControlFlow = selected;
+						if (FlowDiagramEditor.this.diagramPanel != null) {
+							FlowDiagramEditor.this.diagramPanel.setShowControlFlow(selected);
+						}
+					}
 
-		this.controlFlowToggle.setToolTipText("Show the control flow: next / flow / escalation connections");
-		this.controlFlowToggle.setFocusable(false);
-		this.controlFlowToggle.addActionListener(e -> {
-			this.showControlFlow = this.controlFlowToggle.isSelected();
-			if (this.diagramPanel != null) {
-				this.diagramPanel.setShowControlFlow(this.showControlFlow);
+					@Override
+					public void onDataFlow(boolean selected) {
+						FlowDiagramEditor.this.showDataFlow = selected;
+						if (selected && !FlowDiagramEditor.this.enriched) {
+							enrichInBackground();
+						}
+						if (FlowDiagramEditor.this.diagramPanel != null) {
+							FlowDiagramEditor.this.diagramPanel.setShowDataFlow(selected);
+						}
+					}
+
+					@Override
+					public void onZoomIn() {
+						zoom(1.15);
+					}
+
+					@Override
+					public void onZoomOut() {
+						zoom(1 / 1.15);
+					}
+
+					@Override
+					public void onFit() {
+						fit();
+					}
+				}, this::relayout);
+
+		this.root.add(this.scrollPane, JLayeredPane.DEFAULT_LAYER);
+		this.root.add(this.controlPanel, JLayeredPane.PALETTE_LAYER);
+		this.root.addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				relayout();
 			}
 		});
-		toolbar.add(this.controlFlowToggle);
-
-		this.dataFlowToggle.setToolTipText(
-				"Show the data flow: @Val/In/Out variables and @Parameter values passed between functions");
-		this.dataFlowToggle.setFocusable(false);
-		this.dataFlowToggle.addActionListener(e -> {
-			this.showDataFlow = this.dataFlowToggle.isSelected();
-			if (this.showDataFlow && !this.enriched) {
-				enrichInBackground();
-			}
-			if (this.diagramPanel != null) {
-				this.diagramPanel.setShowDataFlow(this.showDataFlow);
-			}
-		});
-		toolbar.add(this.dataFlowToggle);
-		this.root.add(toolbar, BorderLayout.NORTH);
-		this.root.add(this.scrollPane, BorderLayout.CENTER);
 
 		rebuild();
 	}
 
-	private javax.swing.JButton button(String text, String tooltip, Runnable action) {
-		javax.swing.JButton b = new javax.swing.JButton(text);
-		b.setToolTipText(tooltip);
-		b.setFocusable(false);
-		b.addActionListener(e -> action.run());
-		return b;
+	/** Keeps the scroll pane filling the view and the control panel pinned top-right. */
+	private void relayout() {
+		int w = this.root.getWidth();
+		int h = this.root.getHeight();
+		this.scrollPane.setBounds(0, 0, w, h);
+		if (this.controlPanel.isVisible()) {
+			Dimension pref = this.controlPanel.getPreferredSize();
+			int margin = JBUI.scale(10);
+			int x = Math.max(margin, w - pref.width - margin);
+			this.controlPanel.setBounds(x, margin, pref.width, pref.height);
+		}
+		this.root.revalidate();
+		this.root.repaint();
 	}
 
 	private void zoom(double factor) {
@@ -142,13 +163,14 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 
 		if (parsed == null || parsed.isEmpty()) {
 			this.diagramPanel = null;
-			this.dataFlowToggle.setEnabled(false);
+			this.controlPanel.setVisible(false);
 			JBLabel empty = new JBLabel(
 					"<html><center>This file is not an OfficeFloor flow configuration,<br/>"
 							+ "or it declares no functions.</center></html>",
 					SwingConstants.CENTER);
 			empty.setHorizontalAlignment(SwingConstants.CENTER);
 			this.scrollPane.setViewportView(empty);
+			relayout();
 			return;
 		}
 
@@ -178,12 +200,14 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 			}
 		});
 		// Data-flow metadata is resolved lazily; enable the toggle whenever there are functions.
-		this.dataFlowToggle.setEnabled(true);
+		this.controlPanel.setVisible(true);
+		this.controlPanel.setDataFlowEnabled(true);
 		panel.setShowControlFlow(this.showControlFlow);
 		panel.setShowDataFlow(this.showDataFlow);
 
 		this.diagramPanel = panel;
 		this.scrollPane.setViewportView(panel);
+		relayout();
 
 		if (this.showDataFlow) {
 			enrichInBackground();

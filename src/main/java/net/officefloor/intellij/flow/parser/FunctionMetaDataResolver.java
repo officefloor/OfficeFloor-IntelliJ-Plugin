@@ -16,7 +16,8 @@ import net.officefloor.intellij.flow.model.VariableDirection;
  * ProcedureType is preferred for the {@code @Parameter} type, the return type
  * and the set of variables (names + types) — it is authoritative and also covers
  * custom / polyglot procedures. The Java source supplies only the In/Out
- * direction, which the compiled type discards, matched by variable name. When
+ * direction, which the compiled type discards, matched by variable name, and the
+ * HTTP inputs, which are read directly from the parameter annotations. When
  * ProcedureType is unavailable the source metadata is used in full.
  */
 final class FunctionMetaDataResolver {
@@ -48,6 +49,8 @@ final class FunctionMetaDataResolver {
 					variable.getQualifier(), direction));
 		}
 
-		return new FunctionMetaData(variables, returnType, parameterType);
+		// HTTP inputs are read directly from the parameter annotations, so they
+		// always come from the Java source (ProcedureType does not label them).
+		return new FunctionMetaData(variables, src.getHttpInputs(), returnType, parameterType);
 	}
 }

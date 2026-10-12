@@ -31,10 +31,10 @@ The parser targets the OfficeFloor "compose" / Activity YAML model (as parsed by
 HTTP endpoints are derived from the file location under a `rest/` directory
 (`index` → `/`, directory nesting → path nesting, `{param}` path parameters).
 
-## Control flow and data flow
+## Control flow, data flow and HTTP inputs
 
-A collapsible control panel floats over the top-right of the diagram. Two
-independent check boxes control what is drawn; either or both can be on:
+A collapsible control panel floats over the top-right of the diagram. Three
+independent check boxes control what is drawn; any combination can be on:
 
 - **Control flow** (on by default): the `next` / `outputs` / `escalations`
   connections — where the pipeline directs next.
@@ -52,6 +52,16 @@ independent check boxes control what is drawn; either or both can be on:
     its `next` function, received there by the `@Parameter` method parameter.
     These are shown as purple chips (a `return` chip on the producer, a `(param)`
     chip on the consumer) joined by a purple overlay line along the flow.
+- **HTTP inputs**: the request values each function reads, shown as teal input
+  chips on the left of a function. Both OfficeFloor web annotations
+  (`@HttpPathParameter`, `@HttpQueryParameter`, `@HttpHeaderParameter`,
+  `@HttpCookieParameter`, `@HttpContentParameter`, `@HttpObject`) and the
+  equivalent Spring MVC annotations (`@PathVariable`, `@RequestParam`,
+  `@RequestHeader`, `@CookieValue`, `@RequestBody`, `@RequestPart`) are read from
+  the Java method. A chip's glyph shows its source (`/` path, `?` query, `H`
+  header, `C` cookie, `{}` body); the tooltip names the annotation. Like the
+  variable direction, these are read from the Java method, so a non-Java
+  (polyglot) procedure will not show them.
 
 Turning both on overlays data flow on top of the control flow.
 

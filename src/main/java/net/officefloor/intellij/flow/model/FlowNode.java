@@ -34,6 +34,9 @@ public final class FlowNode {
 	/** Variables this function reads/writes (populated from the Java method signature). */
 	private final List<VariableAccess> variables = new ArrayList<>();
 
+	/** HTTP request inputs this function consumes (populated from the Java method signature). */
+	private final List<HttpInput> httpInputs = new ArrayList<>();
+
 	/** The method's non-void return type (the argument passed to the {@code next} function), or null. */
 	private String returnType;
 
@@ -97,6 +100,22 @@ public final class FlowNode {
 
 	public boolean hasVariables() {
 		return !this.variables.isEmpty();
+	}
+
+	public void addHttpInput(HttpInput input) {
+		this.httpInputs.add(input);
+	}
+
+	public void clearHttpInputs() {
+		this.httpInputs.clear();
+	}
+
+	public List<HttpInput> getHttpInputs() {
+		return Collections.unmodifiableList(this.httpInputs);
+	}
+
+	public boolean hasHttpInputs() {
+		return !this.httpInputs.isEmpty();
 	}
 
 	public String getReturnType() {

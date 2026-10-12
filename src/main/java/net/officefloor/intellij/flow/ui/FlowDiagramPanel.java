@@ -37,6 +37,7 @@ import net.officefloor.intellij.flow.model.FlowGraph;
 import net.officefloor.intellij.flow.model.FlowLink;
 // FlowGraph.PARAMETER_VARIABLE referenced below.
 import net.officefloor.intellij.flow.model.FlowNode;
+import net.officefloor.intellij.flow.model.HttpInput;
 import net.officefloor.intellij.flow.model.LinkKind;
 import net.officefloor.intellij.flow.model.NodeKind;
 import net.officefloor.intellij.flow.model.VariableAccess;
@@ -73,11 +74,12 @@ public class FlowDiagramPanel extends JPanel {
 	private double scale = 1.0;
 	private boolean showControlFlow = true;
 	private boolean showDataFlow;
+	private boolean showHttpInputs;
 	private FlowNode hovered;
 
 	/** Visual style of a chip, by what the function does with the value. */
 	private enum ChipStyle {
-		READ, WRITE, PARAM, RETURN, UNKNOWN
+		READ, WRITE, PARAM, RETURN, UNKNOWN, HTTP
 	}
 
 	/** A variable / parameter chip drawn beside a node. */
@@ -126,7 +128,7 @@ public class FlowDiagramPanel extends JPanel {
 					return;
 				}
 				boolean preferYaml = e.getClickCount() >= 2;
-				if (FlowDiagramPanel.this.showDataFlow) {
+				if (chipsVisible()) {
 					Chip chip = chipAt(e.getPoint());
 					if (chip != null) {
 						FlowNode owner = FlowDiagramPanel.this.graph.getNode(chip.nodeId);
@@ -151,7 +153,7 @@ public class FlowDiagramPanel extends JPanel {
 
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				Chip chip = FlowDiagramPanel.this.showDataFlow ? chipAt(e.getPoint()) : null;
+				Chip chip = chipsVisible() ? chipAt(e.getPoint()) : null;
 				FlowNode node = chip == null ? nodeAt(e.getPoint()) : FlowDiagramPanel.this.graph.getNode(chip.nodeId);
 				if (node != FlowDiagramPanel.this.hovered) {
 					FlowDiagramPanel.this.hovered = node;
@@ -210,6 +212,20 @@ public class FlowDiagramPanel extends JPanel {
 
 	public boolean isShowDataFlow() {
 		return this.showDataFlow;
+	}
+
+	public void setShowHttpInputs(boolean showHttpInputs) {
+		this.showHttpInputs = showHttpInputs;
+		this.repaint();
+	}
+
+	public boolean isShowHttpInputs() {
+		return this.showHttpInputs;
+	}
+
+	/** Chips (variables, parameter, HTTP inputs) are drawn when either mode is on. */
+	private boolean chipsVisible() {
+		return this.showDataFlow || this.showHttpInputs;
 	}
 
 	public void zoomToFit(Dimension viewport) {
@@ -331,18 +347,20 @@ public class FlowDiagramPanel extends JPanel {
 			this.linkPaths.clear();
 			this.chips.clear();
 
-			// Data-flow overlay (behind nodes): compute chip geometry first so links connect chip to chip.
-			if (this.showDataFlow) {
-				List<DataFlowLink> dataLinks = this.graph.getDataFlowLinks();
-				List<DataFlowLink> parameterLinks = this.graph.getParameterFlowLinks();
+			// Chip overlay (behind nodes): compute chip geometry first so data links connect chip to chip.
+			if (chipsVisible()) {
+				List<DataFlowLink> parameterLinks = this.showDataFlow ? this.graph.getParameterFlowLinks()
+						: java.util.Collections.emptyList();
 				Map<String, Rectangle2D> inChips = new HashMap<>();
 				Map<String, Rectangle2D> outChips = new HashMap<>();
 				computeChips(g2, inChips, outChips, parameterLinks);
-				for (DataFlowLink link : dataLinks) {
-					paintDataLink(g2, link, inChips, outChips, DATA_LINK);
-				}
-				for (DataFlowLink link : parameterLinks) {
-					paintDataLink(g2, link, inChips, outChips, PARAM_LINK);
+				if (this.showDataFlow) {
+					for (DataFlowLink link : this.graph.getDataFlowLinks()) {
+						paintDataLink(g2, link, inChips, outChips, DATA_LINK);
+					}
+					for (DataFlowLink link : parameterLinks) {
+						paintDataLink(g2, link, inChips, outChips, PARAM_LINK);
+					}
 				}
 			}
 
@@ -358,7 +376,7 @@ public class FlowDiagramPanel extends JPanel {
 			}
 
 			// Chips drawn on top of the nodes.
-			if (this.showDataFlow) {
+			if (chipsVisible()) {
 				paintChips(g2);
 			}
 		} finally {
@@ -461,47 +479,59 @@ public class FlowDiagramPanel extends JPanel {
 			if (b == null) {
 				continue;
 			}
-			LinkedHashMap<String, VariableAccess> reads = new LinkedHashMap<>();
-			LinkedHashMap<String, VariableAccess> writes = new LinkedHashMap<>();
-			LinkedHashMap<String, VariableAccess> unknown = new LinkedHashMap<>();
-			for (VariableAccess access : node.getVariables()) {
-				if (access.getDirection().reads()) {
-					reads.putIfAbsent(access.getVariableName(), access);
-				}
-				if (access.getDirection().writes()) {
-					writes.putIfAbsent(access.getVariableName(), access);
-				}
-				if (!access.getDirection().reads() && !access.getDirection().writes()) {
-					unknown.putIfAbsent(access.getVariableName(), access);
-				}
-			}
-
-			// Left column: reads, then direction-unknown variables, then the @Parameter.
 			List<ChipSpec> left = new ArrayList<>();
-			for (VariableAccess access : reads.values()) {
-				left.add(new ChipSpec(access.getVariableName(), "◂ " + access.displayLabel(), access.tooltip(),
-						ChipStyle.READ));
-			}
-			for (VariableAccess access : unknown.values()) {
-				left.add(new ChipSpec(access.getVariableName(), "◇ " + access.displayLabel(),
-						access.tooltip() + " (direction unknown)", ChipStyle.UNKNOWN));
-			}
-			if (node.hasParameterType()) {
-				String simple = VariableAccess.simpleType(node.getParameterType());
-				left.add(new ChipSpec(FlowGraph.PARAMETER_VARIABLE, "◂ " + simple + " (param)",
-						"@Parameter " + node.getParameterType(), ChipStyle.PARAM));
+			List<ChipSpec> right = new ArrayList<>();
+
+			// HTTP request inputs (no producer) sit at the top of the input column.
+			if (this.showHttpInputs) {
+				for (HttpInput input : node.getHttpInputs()) {
+					left.add(new ChipSpec("http\u0000" + input.getKind() + "\u0000" + input.getName(),
+							"◂ " + input.chipLabel(), input.tooltip(), ChipStyle.HTTP));
+				}
 			}
 
-			// Right column: writes, then the return value (when consumed downstream).
-			List<ChipSpec> right = new ArrayList<>();
-			for (VariableAccess access : writes.values()) {
-				right.add(new ChipSpec(access.getVariableName(), access.displayLabel() + " ▸", access.tooltip(),
-						ChipStyle.WRITE));
-			}
-			if (node.hasReturnType() && returnProducers.contains(node.getId())) {
-				String simple = VariableAccess.simpleType(node.getReturnType());
-				right.add(new ChipSpec(FlowGraph.PARAMETER_VARIABLE, "return " + simple + " ▸",
-						"returns " + node.getReturnType(), ChipStyle.RETURN));
+			// Data flow: variables (reads / writes), the @Parameter and the return value.
+			if (this.showDataFlow) {
+				LinkedHashMap<String, VariableAccess> reads = new LinkedHashMap<>();
+				LinkedHashMap<String, VariableAccess> writes = new LinkedHashMap<>();
+				LinkedHashMap<String, VariableAccess> unknown = new LinkedHashMap<>();
+				for (VariableAccess access : node.getVariables()) {
+					if (access.getDirection().reads()) {
+						reads.putIfAbsent(access.getVariableName(), access);
+					}
+					if (access.getDirection().writes()) {
+						writes.putIfAbsent(access.getVariableName(), access);
+					}
+					if (!access.getDirection().reads() && !access.getDirection().writes()) {
+						unknown.putIfAbsent(access.getVariableName(), access);
+					}
+				}
+
+				// Left column: reads, then direction-unknown variables, then the @Parameter.
+				for (VariableAccess access : reads.values()) {
+					left.add(new ChipSpec(access.getVariableName(), "◂ " + access.displayLabel(), access.tooltip(),
+							ChipStyle.READ));
+				}
+				for (VariableAccess access : unknown.values()) {
+					left.add(new ChipSpec(access.getVariableName(), "◇ " + access.displayLabel(),
+							access.tooltip() + " (direction unknown)", ChipStyle.UNKNOWN));
+				}
+				if (node.hasParameterType()) {
+					String simple = VariableAccess.simpleType(node.getParameterType());
+					left.add(new ChipSpec(FlowGraph.PARAMETER_VARIABLE, "◂ " + simple + " (param)",
+							"@Parameter " + node.getParameterType(), ChipStyle.PARAM));
+				}
+
+				// Right column: writes, then the return value (when consumed downstream).
+				for (VariableAccess access : writes.values()) {
+					right.add(new ChipSpec(access.getVariableName(), access.displayLabel() + " ▸", access.tooltip(),
+							ChipStyle.WRITE));
+				}
+				if (node.hasReturnType() && returnProducers.contains(node.getId())) {
+					String simple = VariableAccess.simpleType(node.getReturnType());
+					right.add(new ChipSpec(FlowGraph.PARAMETER_VARIABLE, "return " + simple + " ▸",
+							"returns " + node.getReturnType(), ChipStyle.RETURN));
+				}
 			}
 
 			layoutChipColumn(fm, b, true, left, ch, gap, inChips, node.getId());
@@ -639,6 +669,7 @@ public class FlowDiagramPanel extends JPanel {
 	private static final Color VAR_UNKNOWN = new JBColor(new Color(0x616161), new Color(0x9E9E9E));
 	private static final Color DATA_LINK = new JBColor(new Color(0xEF6C00), new Color(0xFFB74D));
 	private static final Color PARAM_LINK = new JBColor(new Color(0x6A1B9A), new Color(0xBA68C8));
+	private static final Color HTTP_INPUT = new JBColor(new Color(0x00838F), new Color(0x4DD0E1));
 
 	private static Color chipAccent(ChipStyle style) {
 		switch (style) {
@@ -649,6 +680,8 @@ public class FlowDiagramPanel extends JPanel {
 		case PARAM:
 		case RETURN:
 			return PARAM_LINK;
+		case HTTP:
+			return HTTP_INPUT;
 		case UNKNOWN:
 		default:
 			return VAR_UNKNOWN;
@@ -664,6 +697,8 @@ public class FlowDiagramPanel extends JPanel {
 		case PARAM:
 		case RETURN:
 			return new JBColor(new Color(0xF3E5F5), new Color(0x33293A));
+		case HTTP:
+			return new JBColor(new Color(0xE0F7FA), new Color(0x23383C));
 		case UNKNOWN:
 		default:
 			return new JBColor(new Color(0xEEEEEE), new Color(0x2E2E2E));

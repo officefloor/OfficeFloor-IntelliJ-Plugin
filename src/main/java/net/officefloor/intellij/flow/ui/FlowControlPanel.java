@@ -44,6 +44,8 @@ public final class FlowControlPanel extends JPanel {
 
 		void onDataFlow(boolean selected);
 
+		void onHttpInputs(boolean selected);
+
 		void onZoomIn();
 
 		void onZoomOut();
@@ -56,13 +58,15 @@ public final class FlowControlPanel extends JPanel {
 
 	private final JBCheckBox controlFlow = new JBCheckBox("Control flow");
 	private final JBCheckBox dataFlow = new JBCheckBox("Data flow");
+	private final JBCheckBox httpInputs = new JBCheckBox("HTTP inputs");
 	private final JPanel body = new JPanel();
 	private final CaretButton caret = new CaretButton();
 	private final Runnable onLayoutChanged;
 
 	private boolean collapsed;
 
-	public FlowControlPanel(boolean controlSelected, boolean dataSelected, Listener listener, Runnable onLayoutChanged) {
+	public FlowControlPanel(boolean controlSelected, boolean dataSelected, boolean httpSelected, Listener listener,
+			Runnable onLayoutChanged) {
 		super(new BorderLayout());
 		this.onLayoutChanged = onLayoutChanged;
 		setOpaque(false);
@@ -88,17 +92,24 @@ public final class FlowControlPanel extends JPanel {
 
 		this.controlFlow.setOpaque(false);
 		this.dataFlow.setOpaque(false);
+		this.httpInputs.setOpaque(false);
 		this.controlFlow.setSelected(controlSelected);
 		this.dataFlow.setSelected(dataSelected);
+		this.httpInputs.setSelected(httpSelected);
 		this.controlFlow.setToolTipText("Show the control flow: next / flow / escalation connections");
 		this.dataFlow.setToolTipText(
 				"Show the data flow: @Val/In/Out variables and @Parameter values passed between functions");
+		this.httpInputs.setToolTipText(
+				"Show the HTTP request inputs each function reads (path, query, header, cookie, body)");
 		this.controlFlow.setAlignmentX(Component.LEFT_ALIGNMENT);
 		this.dataFlow.setAlignmentX(Component.LEFT_ALIGNMENT);
+		this.httpInputs.setAlignmentX(Component.LEFT_ALIGNMENT);
 		this.controlFlow.addActionListener(e -> listener.onControlFlow(this.controlFlow.isSelected()));
 		this.dataFlow.addActionListener(e -> listener.onDataFlow(this.dataFlow.isSelected()));
+		this.httpInputs.addActionListener(e -> listener.onHttpInputs(this.httpInputs.isSelected()));
 		this.body.add(this.controlFlow);
 		this.body.add(this.dataFlow);
+		this.body.add(this.httpInputs);
 
 		this.body.add(Box.createVerticalStrut(JBUI.scale(10)));
 
@@ -113,9 +124,10 @@ public final class FlowControlPanel extends JPanel {
 		add(this.body, BorderLayout.CENTER);
 	}
 
-	/** Enables or disables the data-flow check box (disabled when nothing to show). */
-	public void setDataFlowEnabled(boolean enabled) {
+	/** Enables or disables the data-flow and HTTP-input check boxes (disabled when nothing to show). */
+	public void setMetadataEnabled(boolean enabled) {
 		this.dataFlow.setEnabled(enabled);
+		this.httpInputs.setEnabled(enabled);
 	}
 
 	private void toggleCollapsed() {

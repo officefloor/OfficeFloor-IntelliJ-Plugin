@@ -2,12 +2,14 @@ package net.officefloor.intellij.flow.parser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiAnnotation;
+import com.intellij.psi.PsiAnnotationMemberValue;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiMethod;
@@ -17,6 +19,7 @@ import com.intellij.psi.PsiType;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiUtil;
 
+import net.officefloor.intellij.flow.model.HttpInput;
 import net.officefloor.intellij.flow.model.VariableAccess;
 import net.officefloor.intellij.flow.model.VariableDirection;
 
@@ -46,6 +49,28 @@ public final class JavaFunctionVariables {
 	private static final String QUALIFIER_META = "net.officefloor.plugin.clazz.Qualifier";
 	private static final String QUALIFIED = "net.officefloor.plugin.clazz.Qualified";
 	private static final String PARAMETER = "net.officefloor.plugin.section.clazz.Parameter";
+
+	private static final String HTTP_OBJECT = "net.officefloor.web.HttpObject";
+
+	/** OfficeFloor web parameter annotations, by FQN. */
+	private static final Map<String, HttpInput.Kind> OFFICEFLOOR_HTTP = new LinkedHashMap<>();
+	/** Spring MVC request-binding annotations, by FQN. */
+	private static final Map<String, HttpInput.Kind> SPRING_HTTP = new LinkedHashMap<>();
+	static {
+		OFFICEFLOOR_HTTP.put("net.officefloor.web.HttpPathParameter", HttpInput.Kind.PATH);
+		OFFICEFLOOR_HTTP.put("net.officefloor.web.HttpQueryParameter", HttpInput.Kind.QUERY);
+		OFFICEFLOOR_HTTP.put("net.officefloor.web.HttpHeaderParameter", HttpInput.Kind.HEADER);
+		OFFICEFLOOR_HTTP.put("net.officefloor.web.HttpCookieParameter", HttpInput.Kind.COOKIE);
+		OFFICEFLOOR_HTTP.put("net.officefloor.web.HttpContentParameter", HttpInput.Kind.FORM);
+		OFFICEFLOOR_HTTP.put(HTTP_OBJECT, HttpInput.Kind.BODY);
+
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.PathVariable", HttpInput.Kind.PATH);
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.RequestParam", HttpInput.Kind.QUERY);
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.RequestHeader", HttpInput.Kind.HEADER);
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.CookieValue", HttpInput.Kind.COOKIE);
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.RequestPart", HttpInput.Kind.FORM);
+		SPRING_HTTP.put("org.springframework.web.bind.annotation.RequestBody", HttpInput.Kind.BODY);
+	}
 
 	private static final Map<String, String> BOXED = new HashMap<>();
 	static {
@@ -82,13 +107,21 @@ public final class JavaFunctionVariables {
 		}
 
 		List<VariableAccess> variables = new ArrayList<>();
+		List<HttpInput> httpInputs = new ArrayList<>();
 		String parameterType = null;
 		for (PsiParameter parameter : method.getParameterList().getParameters()) {
 			VariableAccess access = toAccess(project, parameter);
 			if (access != null) {
 				variables.add(access);
-			} else if (parameterType == null && parameter.hasAnnotation(PARAMETER)) {
+				continue;
+			}
+			if (parameterType == null && parameter.hasAnnotation(PARAMETER)) {
 				parameterType = normalise(parameter.getType().getCanonicalText());
+				continue;
+			}
+			HttpInput httpInput = toHttpInput(parameter);
+			if (httpInput != null) {
+				httpInputs.add(httpInput);
 			}
 		}
 
@@ -97,7 +130,63 @@ public final class JavaFunctionVariables {
 				? normalise(returnPsi.getCanonicalText())
 				: null;
 
-		return new FunctionMetaData(variables, returnType, parameterType);
+		return new FunctionMetaData(variables, httpInputs, returnType, parameterType);
+	}
+
+	/** Detects an HTTP request input on a parameter (OfficeFloor web or Spring MVC). */
+	private static HttpInput toHttpInput(PsiParameter parameter) {
+		for (Map.Entry<String, HttpInput.Kind> entry : OFFICEFLOOR_HTTP.entrySet()) {
+			PsiAnnotation annotation = parameter.getAnnotation(entry.getKey());
+			if (annotation != null) {
+				return buildHttpInput(parameter, annotation, entry.getValue(), HttpInput.Source.OFFICEFLOOR,
+						entry.getKey());
+			}
+		}
+		for (Map.Entry<String, HttpInput.Kind> entry : SPRING_HTTP.entrySet()) {
+			PsiAnnotation annotation = parameter.getAnnotation(entry.getKey());
+			if (annotation != null) {
+				return buildHttpInput(parameter, annotation, entry.getValue(), HttpInput.Source.SPRING, entry.getKey());
+			}
+		}
+		// @HttpObject may annotate the parameter's type (class) rather than the parameter.
+		PsiClass typeClass = PsiUtil.resolveClassInClassTypeOnly(parameter.getType());
+		if (typeClass != null && typeClass.hasAnnotation(HTTP_OBJECT)) {
+			return new HttpInput(HttpInput.Kind.BODY, "", normalise(parameter.getType().getCanonicalText()),
+					HttpInput.Source.OFFICEFLOOR, "HttpObject");
+		}
+		return null;
+	}
+
+	private static HttpInput buildHttpInput(PsiParameter parameter, PsiAnnotation annotation, HttpInput.Kind kind,
+			HttpInput.Source source, String fqn) {
+		String name = kind == HttpInput.Kind.BODY ? "" : httpInputName(annotation, parameter);
+		String type = normalise(parameter.getType().getCanonicalText());
+		String simpleAnnotation = fqn.substring(fqn.lastIndexOf('.') + 1);
+		return new HttpInput(kind, name, type, source, simpleAnnotation);
+	}
+
+	/** The declared parameter name (annotation {@code value} or {@code name}), else the Java name. */
+	private static String httpInputName(PsiAnnotation annotation, PsiParameter parameter) {
+		String value = attributeString(annotation, "value");
+		if (value == null || value.isEmpty()) {
+			value = attributeString(annotation, "name");
+		}
+		if (value == null || value.isEmpty()) {
+			value = parameter.getName();
+		}
+		return value == null ? "" : value;
+	}
+
+	private static String attributeString(PsiAnnotation annotation, String attribute) {
+		PsiAnnotationMemberValue value = annotation.findAttributeValue(attribute);
+		if (value == null) {
+			return null;
+		}
+		String text = value.getText();
+		if (text != null && text.length() >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
+			return text.substring(1, text.length() - 1);
+		}
+		return null;
 	}
 
 	private static PsiMethod resolveMethod(PsiClass psiClass, String methodName) {

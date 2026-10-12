@@ -33,6 +33,7 @@ import net.officefloor.intellij.flow.layout.LayoutResult;
 import net.officefloor.intellij.flow.model.FlowGraph;
 import net.officefloor.intellij.flow.model.FlowLink;
 import net.officefloor.intellij.flow.model.FlowNode;
+import net.officefloor.intellij.flow.model.HttpInput;
 import net.officefloor.intellij.flow.model.VariableAccess;
 import net.officefloor.intellij.flow.parser.ComposeYamlParser;
 import net.officefloor.intellij.flow.parser.FunctionMetaData;
@@ -64,6 +65,7 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 	/** Remembered across rebuilds so toggling survives a re-parse. */
 	private boolean showControlFlow = true;
 	private boolean showDataFlow;
+	private boolean showHttpInputs;
 
 	/** Data-flow metadata (variables/parameter/return) is loaded lazily, in the background. */
 	private boolean enriched;
@@ -73,7 +75,7 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 		this.project = project;
 		this.file = file;
 
-		this.controlPanel = new FlowControlPanel(this.showControlFlow, this.showDataFlow,
+		this.controlPanel = new FlowControlPanel(this.showControlFlow, this.showDataFlow, this.showHttpInputs,
 				new FlowControlPanel.Listener() {
 					@Override
 					public void onControlFlow(boolean selected) {
@@ -91,6 +93,17 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 						}
 						if (FlowDiagramEditor.this.diagramPanel != null) {
 							FlowDiagramEditor.this.diagramPanel.setShowDataFlow(selected);
+						}
+					}
+
+					@Override
+					public void onHttpInputs(boolean selected) {
+						FlowDiagramEditor.this.showHttpInputs = selected;
+						if (selected && !FlowDiagramEditor.this.enriched) {
+							enrichInBackground();
+						}
+						if (FlowDiagramEditor.this.diagramPanel != null) {
+							FlowDiagramEditor.this.diagramPanel.setShowHttpInputs(selected);
 						}
 					}
 
@@ -199,17 +212,18 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 				}
 			}
 		});
-		// Data-flow metadata is resolved lazily; enable the toggle whenever there are functions.
+		// Data-flow / HTTP-input metadata is resolved lazily; enable whenever there are functions.
 		this.controlPanel.setVisible(true);
-		this.controlPanel.setDataFlowEnabled(true);
+		this.controlPanel.setMetadataEnabled(true);
 		panel.setShowControlFlow(this.showControlFlow);
 		panel.setShowDataFlow(this.showDataFlow);
+		panel.setShowHttpInputs(this.showHttpInputs);
 
 		this.diagramPanel = panel;
 		this.scrollPane.setViewportView(panel);
 		relayout();
 
-		if (this.showDataFlow) {
+		if (this.showDataFlow || this.showHttpInputs) {
 			enrichInBackground();
 		}
 	}
@@ -245,6 +259,10 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 					node.clearVariables();
 					for (VariableAccess access : md.getVariables()) {
 						node.addVariable(access);
+					}
+					node.clearHttpInputs();
+					for (HttpInput httpInput : md.getHttpInputs()) {
+						node.addHttpInput(httpInput);
 					}
 					node.setReturnType(md.getReturnType());
 					node.setParameterType(md.getParameterType());

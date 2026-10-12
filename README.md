@@ -1,0 +1,136 @@
+# OfficeFloor Flow View — IntelliJ plugin
+
+Visualises OfficeFloor **WoOF / Activity "compose" YAML** configuration as an
+auto-laid-out flow diagram. Open a configuration file and a **Flow** tab appears
+next to the text editor, showing the functions flowing down the page with their
+`next`, `outputs` (flows) and `escalations` drawn as connections.
+
+> OfficeFloor configures REST endpoints by *function injection*: each YAML file
+> describes a pipeline of functions that service a request. This plugin turns
+> that YAML into the flow diagram it really is.
+
+## What it understands
+
+The parser targets the OfficeFloor "compose" / Activity YAML model (as parsed by
+`net.officefloor.activity.compose.ComposeConfiguration` and used by the
+`officefloor-rest-spring-boot-starter`):
+
+| YAML                             | Diagram                                                        |
+|----------------------------------|----------------------------------------------------------------|
+| each top-level key (not `composition`) | a **function** node                                      |
+| `class` / `method`               | a procedure node → its Java class / method                     |
+| `source` / `location`            | a section node                                                 |
+| `procedure` / `resource`         | a custom-procedure node                                        |
+| `next: target`                   | a **next** connection (sequential continuation)                |
+| `outputs: { name: target }`      | a **flow** connection per named output                         |
+| `escalations: { Exception: target }` | an **escalation** connection (dashed)                      |
+| `composition.escalations`        | section-wide escalations (shown off the entry function)        |
+| `#name` values                   | an external link target node                                   |
+| file name `path.METHOD.yml`      | an **HTTP endpoint** node routing into the entry function      |
+
+HTTP endpoints are derived from the file location under a `rest/` directory
+(`index` → `/`, directory nesting → path nesting, `{param}` path parameters).
+
+## Control flow and data flow
+
+Two independent toolbar toggles control what is drawn; either or both can be on:
+
+- **Control flow** (on by default): the `next` / `outputs` / `escalations`
+  connections — where the pipeline directs next.
+- **Data flow**: the information passed between functions, read from the **Java
+  source**:
+  - *Variables* — each function's method is inspected for `@Val T` / `In<T>`
+    (reads) and `Out<T>` (writes), plus `Var<T>` (both). Reads appear as chips on
+    the left of a function, writes on the right, labelled by type. An amber
+    overlay line runs from each writer to every function that reads the same
+    variable. Two functions share a variable when their `(qualifier, type)` match
+    — OfficeFloor's rule `name = (qualifier == null ? "" : qualifier + "-") +
+    type`; a qualifier (a `@Qualifier`-meta-annotated annotation on the parameter)
+    distinguishes two variables of the same type.
+  - *Parameters* — a function's non-void return becomes the argument passed to
+    its `next` function, received there by the `@Parameter` method parameter.
+    These are shown as purple chips (a `return` chip on the producer, a `(param)`
+    chip on the consumer) joined by a purple overlay line along the flow.
+
+Turning both on overlays data flow on top of the control flow.
+
+### How the data-flow metadata is resolved
+
+Data-flow metadata is loaded **lazily** — the first time Data flow is switched on
+— and **in the background**, so opening a file and viewing control flow stay
+instant. For each function it is resolved:
+
+1. **OfficeFloor's compiled `ProcedureType` first.** The plugin runs OfficeFloor's
+   own compiler over a classloader built from the module's compiled output and
+   dependencies (it does not bundle OfficeFloor, so the project's own version and
+   procedure sources are used). `ProcedureType` authoritatively gives the
+   `@Parameter` type, the return/next type, and the set of variables with their
+   types — and it understands custom / polyglot (Kotlin, Scala, JavaScript, …)
+   procedures that have no plain Java method to read.
+2. **Java source for the In/Out direction.** `ProcedureType` flattens variables
+   and does not record read vs. write, so the plugin recovers each variable's
+   direction from the Java source by matching the variable name. A variable whose
+   direction cannot be determined (e.g. a polyglot procedure with no Java source)
+   is shown as a neutral grey chip with no arrow.
+3. **Full fallback to Java source** when a `ProcedureType` cannot be loaded (not an
+   OfficeFloor project, OfficeFloor not on the classpath, or a load issue).
+
+Because `ProcedureType` reflects on real classes, the **project must be compiled**
+for step 1 to contribute; otherwise the plugin falls back to source. Open an
+OfficeFloor project such as `tutorials/native/core/VariableHttpServer` (whose
+`outIn.GET.yml` is mirrored in [`samples/`](samples)) to see it populated.
+
+## Navigating
+
+- **Single-click a node** → jump to the Java method implementing the function
+  (the `method`, or the class's sole public method when `method` is omitted).
+  Falls back to the YAML when there is no resolvable method (HTTP endpoints,
+  external `#` links, or class names using `${property}` substitution).
+- **Double-click a node** → jump to its declaration in the YAML.
+- **Click a connection** → jump to the `next` / `outputs` / `escalations` entry
+  that declares it.
+- **Ctrl/Cmd + mouse wheel** → zoom. The toolbar has zoom and *Fit* buttons.
+
+## Building & running
+
+Requires JDK 17.
+
+```bash
+./gradlew test          # unit tests (layout engine)
+./gradlew buildPlugin    # produces build/distributions/officefloor-flow-view-*.zip
+./gradlew runIde         # launches a sandbox IDE with the plugin for manual testing
+```
+
+In the sandbox IDE, open any file under [`samples/`](samples) — e.g.
+`samples/officefloor/rest/order/{id}.POST.yml` — and switch to the **Flow** tab.
+
+## Project layout
+
+```
+src/main/java/net/officefloor/intellij/flow/
+  model/    FlowGraph, FlowNode, FlowLink, NodeKind, LinkKind,
+            VariableAccess, VariableDirection, DataFlowLink      (pure, unit-tested)
+  layout/   LayeredLayout                                        (Sugiyama-style top-down)
+  parser/   ComposeYamlParser, RestFileName, ComposeContentHeuristic,
+            FunctionMetaData, FunctionMetaDataResolver,          (hybrid resolution)
+            ProcedureTypeMetaData, JavaFunctionVariables, MetaDataEnricher
+  ui/       FlowDiagramPanel                                     (Swing renderer; both modes)
+  editor/   FlowDiagramEditorProvider, FlowDiagramEditor, JavaTargetNavigator
+```
+
+The `model` and `layout` packages have no IntelliJ dependency and are covered by
+plain JUnit tests.
+
+## Status / roadmap
+
+First version: read-only diagram with jump-to-source. Possible next steps:
+
+- aggregate a whole `rest/` directory into one application-wide diagram;
+- show `govern` / `cors` / `authorize` metadata as node badges;
+- live refresh on edit (currently refreshes when the Flow tab is selected);
+- richer orthogonal edge routing and crossing reduction.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE), matching the
+[OfficeFloor](https://github.com/officefloor/OfficeFloor) framework.

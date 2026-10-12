@@ -1,0 +1,22 @@
+<idea-plugin>
+    <id>net.officefloor.intellij.flow</id>
+    <name>OfficeFloor Flow View</name>
+    <vendor email="daniel@sagenschneider.net" url="https://officefloor.net">OfficeFloor</vendor>
+
+    <description><![CDATA[
+        Visualises OfficeFloor WoOF / Activity configuration as an auto-laid-out
+        flow diagram. When you open a configuration file, a <b>Flow</b> tab shows
+        the functions flowing down the page with their <i>next</i>, <i>flow</i>
+        and <i>escalation</i> links drawn as connections. Click a function to jump
+        to its declaration in the file, or to its Java class / method.
+    ]]></description>
+
+    <!-- Parsing &amp; navigation use the bundled YAML and Java PSI. -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+    <depends optional="true" config-file="officefloor-flow-java.xml">com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileEditorProvider implementation="net.officefloor.intellij.flow.editor.FlowDiagramEditorProvider"/>
+    </extensions>
+</idea-plugin>

@@ -52,8 +52,10 @@ independent check boxes control what is drawn; any combination can be on:
     its `next` function, received there by the `@Parameter` method parameter.
     These are shown as purple chips (a `return` chip on the producer, a `(param)`
     chip on the consumer) joined by a purple overlay line along the flow.
-- **HTTP inputs**: the request values each function reads, shown as teal input
-  chips on the left of a function. Both OfficeFloor web annotations
+- **HTTP inputs**: the request values each function reads, shown as teal chips
+  *inside* the function body. These come from the request, not from another
+  function, so they are drawn on the node itself rather than in the left/right
+  columns that carry inter-function flow. Both OfficeFloor web annotations
   (`@HttpPathParameter`, `@HttpQueryParameter`, `@HttpHeaderParameter`,
   `@HttpCookieParameter`, `@HttpContentParameter`, `@HttpObject`) and the
   equivalent Spring MVC annotations (`@PathVariable`, `@RequestParam`,

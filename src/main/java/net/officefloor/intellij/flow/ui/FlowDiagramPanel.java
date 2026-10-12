@@ -482,14 +482,6 @@ public class FlowDiagramPanel extends JPanel {
 			List<ChipSpec> left = new ArrayList<>();
 			List<ChipSpec> right = new ArrayList<>();
 
-			// HTTP request inputs (no producer) sit at the top of the input column.
-			if (this.showHttpInputs) {
-				for (HttpInput input : node.getHttpInputs()) {
-					left.add(new ChipSpec("http\u0000" + input.getKind() + "\u0000" + input.getName(),
-							"◂ " + input.chipLabel(), input.tooltip(), ChipStyle.HTTP));
-				}
-			}
-
 			// Data flow: variables (reads / writes), the @Parameter and the return value.
 			if (this.showDataFlow) {
 				LinkedHashMap<String, VariableAccess> reads = new LinkedHashMap<>();
@@ -536,7 +528,53 @@ public class FlowDiagramPanel extends JPanel {
 
 			layoutChipColumn(fm, b, true, left, ch, gap, inChips, node.getId());
 			layoutChipColumn(fm, b, false, right, ch, gap, outChips, node.getId());
+
+			// HTTP request inputs are external data flow, so they are drawn inside the
+			// node body rather than in the inter-function input / output columns.
+			if (this.showHttpInputs && node.hasHttpInputs()) {
+				layoutHttpRow(fm, b, node.getHttpInputs(), node.getId());
+			}
 		}
+	}
+
+	/** Lays out the HTTP input chips as a compact row inside the node body. */
+	private void layoutHttpRow(FontMetrics fm, NodeBounds b, List<HttpInput> inputs, String nodeId) {
+		double ch = 15;
+		double gap = 4;
+		double x = b.x + 22; // after the left accent stripe, matching the title's left edge
+		double y = b.y + 31; // lower band of the node, where the subtitle would otherwise sit
+		double maxX = b.right() - 8;
+		int placed = 0;
+		for (int i = 0; i < inputs.size(); i++) {
+			HttpInput input = inputs.get(i);
+			String text = input.chipLabel();
+			double w = fm.stringWidth(text) + 12;
+			if (placed > 0 && (x + w) > maxX) {
+				String more = "+" + (inputs.size() - i);
+				double mw = fm.stringWidth(more) + 10;
+				Rectangle2D rect = new Rectangle2D.Double(Math.min(x, maxX - mw), y, mw, ch);
+				this.chips.add(new Chip(rect, more, overflowTooltip(inputs, i), ChipStyle.HTTP, nodeId));
+				return;
+			}
+			if ((x + w) > maxX) {
+				w = Math.max(24, maxX - x); // a single oversized chip is clipped to the node width
+			}
+			Rectangle2D rect = new Rectangle2D.Double(x, y, w, ch);
+			this.chips.add(new Chip(rect, text, input.tooltip(), ChipStyle.HTTP, nodeId));
+			x += w + gap;
+			placed++;
+		}
+	}
+
+	private static String overflowTooltip(List<HttpInput> inputs, int from) {
+		StringBuilder sb = new StringBuilder("More HTTP inputs: ");
+		for (int i = from; i < inputs.size(); i++) {
+			if (i > from) {
+				sb.append(", ");
+			}
+			sb.append(inputs.get(i).chipLabel());
+		}
+		return sb.toString();
 	}
 
 	private void layoutChipColumn(FontMetrics fm, NodeBounds b, boolean in, List<ChipSpec> specs, double ch, double gap,
@@ -631,7 +669,10 @@ public class FlowDiagramPanel extends JPanel {
 		g2.drawString(ellipsize(g2, node.getTitle(), textWidth),
 				(float) textLeft, (float) (b.y + 22));
 
-		if (!node.getSubtitle().isEmpty()) {
+		// The HTTP input row occupies the subtitle band inside the node, so the
+		// subtitle yields to it when those chips are shown.
+		boolean showingHttpRow = this.showHttpInputs && node.hasHttpInputs();
+		if (!node.getSubtitle().isEmpty() && !showingHttpRow) {
 			g2.setColor(JBColor.GRAY);
 			g2.setFont(this.getFont().deriveFont(Font.PLAIN, 11f));
 			g2.drawString(ellipsize(g2, node.getSubtitle(), textWidth),

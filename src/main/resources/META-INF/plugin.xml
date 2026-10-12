@@ -4,12 +4,32 @@
     <vendor email="daniel@sagenschneider.net" url="https://officefloor.net">OfficeFloor</vendor>
 
     <description><![CDATA[
-        Visualises OfficeFloor WoOF / Activity configuration as an auto-laid-out
-        flow diagram. When you open a configuration file, a <b>Flow</b> tab shows
-        the functions flowing down the page with their <i>next</i>, <i>flow</i>
-        and <i>escalation</i> links drawn as connections. Click a function to jump
-        to its declaration in the file, or to its Java class / method.
+        <p>Visualises OfficeFloor WoOF / Activity "compose" YAML endpoints as an
+        auto-laid-out flow diagram. Open an endpoint configuration file and a
+        <b>Flow</b> tab appears next to the text editor, showing the functions
+        flowing down the page.</p>
+        <p>Two independent overlays let you switch between what the endpoint does
+        and what data moves through it:</p>
+        <ul>
+          <li><b>Control flow</b>: the <code>next</code>, <code>outputs</code>
+          and <code>escalations</code> connections between functions.</li>
+          <li><b>Data flow</b>: the variables each function reads and writes
+          (<code>@Val</code>, <code>In</code>, <code>Out</code>, <code>Var</code>)
+          and the value passed to the next function's <code>@Parameter</code>,
+          drawn as overlay lines.</li>
+        </ul>
+        <p>Click a function to jump to the Java method that implements it, or to
+        its declaration in the YAML. Click a connection to jump to the line that
+        declares it.</p>
+        <p>For <a href="https://officefloor.net">OfficeFloor</a> on Spring Boot REST.</p>
     ]]></description>
+
+    <change-notes><![CDATA[
+        <ul>
+          <li><b>0.1.0</b>: Initial release. Flow diagram with control-flow and
+          data-flow overlays, and jump-to-source navigation.</li>
+        </ul>
+    ]]></change-notes>
 
     <!-- Parsing &amp; navigation use the bundled YAML and Java PSI. -->
     <depends>com.intellij.modules.platform</depends>

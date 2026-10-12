@@ -130,6 +130,36 @@ First version: read-only diagram with jump-to-source. Possible next steps:
 - live refresh on edit (currently refreshes when the Flow tab is selected);
 - richer orthogonal edge routing and crossing reduction.
 
+## Publishing to JetBrains Marketplace
+
+Signing and publishing are wired into `build.gradle.kts` and the
+[`Release`](.github/workflows/release.yml) workflow, which runs `./gradlew
+publishPlugin` when a GitHub Release is published. A few one-time steps can only
+be done by the plugin's owner:
+
+1. **Create a Marketplace vendor account** at
+   [plugins.jetbrains.com](https://plugins.jetbrains.com) and sign in with the
+   JetBrains account that will own the plugin.
+2. **Upload the first version manually.** A brand-new plugin must be uploaded by
+   hand and pass moderation before the API will accept updates. Build the zip
+   with `./gradlew buildPlugin` and upload `build/distributions/*.zip` at
+   [plugins.jetbrains.com/plugin/add](https://plugins.jetbrains.com/plugin/add).
+3. **Create a permanent token** (Marketplace profile, then *My Tokens*) and add
+   it as the GitHub Actions repository secret `PUBLISH_TOKEN`.
+4. **Add a signing certificate** (recommended by Marketplace). Follow
+   [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html)
+   to generate a chain and key, then add the repository secrets
+   `CERTIFICATE_CHAIN`, `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`.
+
+After that, each new release is automated: bump `pluginVersion` in
+`gradle.properties`, publish a GitHub Release, and the workflow signs and
+uploads the new version. You can also run it from the Actions tab via
+*workflow_dispatch*, or publish locally with the same environment variables set:
+
+```bash
+PUBLISH_TOKEN=... ./gradlew publishPlugin
+```
+
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE), matching the

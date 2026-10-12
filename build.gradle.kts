@@ -49,6 +49,22 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+
+    // Plugin signing. JetBrains Marketplace strongly recommends signed plugins.
+    // The Release workflow supplies these from repository secrets. They are unset
+    // for local and CI builds, where signPlugin is not invoked, so those builds
+    // are unaffected.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+
+    // Publishing via `./gradlew publishPlugin`. PUBLISH_TOKEN is a Marketplace
+    // permanent token, supplied as a repository secret by the Release workflow.
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
 }
 
 // IDEA 2024.2.4 predates Java 25. On startup its bundled Gradle plugin

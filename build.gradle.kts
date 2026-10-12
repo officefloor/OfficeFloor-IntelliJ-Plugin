@@ -65,6 +65,15 @@ intellijPlatform {
     publishing {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
+
+    // Run the JetBrains Plugin Verifier against the IDEs recommended for the
+    // plugin's compatibility range. publishPlugin depends on verifyPlugin below,
+    // so verification runs before every publish.
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
 }
 
 // IDEA 2024.2.4 predates Java 25. On startup its bundled Gradle plugin
@@ -93,6 +102,10 @@ tasks {
     }
     named("disableBundledGradlePlugin") {
         mustRunAfter("prepareSandbox")
+    }
+    // Never publish a build that has not passed the Plugin Verifier.
+    named("publishPlugin") {
+        dependsOn("verifyPlugin")
     }
     wrapper {
         gradleVersion = "8.10.2"

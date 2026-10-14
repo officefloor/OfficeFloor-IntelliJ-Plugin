@@ -1,6 +1,6 @@
 <idea-plugin>
-    <id>net.officefloor.intellij.flow</id>
-    <name>OfficeFloor Flow View</name>
+    <id>net.officefloor.ide.rest.plugin</id>
+    <name>OfficeFloor REST View</name>
     <vendor email="daniel@sagenschneider.net" url="https://officefloor.net">OfficeFloor</vendor>
 
     <description><![CDATA[

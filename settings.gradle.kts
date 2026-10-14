@@ -1,1 +1,1 @@
-rootProject.name = "officefloor-flow-view"
+rootProject.name = "officefloor-rest-view"

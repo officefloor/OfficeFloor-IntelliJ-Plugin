@@ -1,4 +1,4 @@
-# OfficeFloor Flow View — IntelliJ plugin
+# OfficeFloor REST View — IntelliJ plugin
 
 Visualises OfficeFloor **WoOF / Activity "compose" YAML** configuration as an
 auto-laid-out flow diagram. Open a configuration file and a **Flow** tab appears
@@ -111,7 +111,7 @@ Requires JDK 17.
 
 ```bash
 ./gradlew test          # unit tests (layout engine)
-./gradlew buildPlugin    # produces build/distributions/officefloor-flow-view-*.zip
+./gradlew buildPlugin    # produces build/distributions/officefloor-rest-view-*.zip
 ./gradlew runIde         # launches a sandbox IDE with the plugin for manual testing
 ```
 

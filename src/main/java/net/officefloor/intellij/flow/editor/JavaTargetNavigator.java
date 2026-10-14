@@ -9,6 +9,7 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.util.PsiNavigateUtil;
 
 /**
  * Navigates to a Java class / method. Isolated in its own class so that callers
@@ -41,7 +42,7 @@ final class JavaTargetNavigator {
 		if (methodName != null && !methodName.isEmpty()) {
 			for (PsiMethod method : psiClass.findMethodsByName(methodName, true)) {
 				if (method.canNavigate()) {
-					method.navigate(true);
+					PsiNavigateUtil.navigate(method);
 					return true;
 				}
 			}
@@ -49,12 +50,12 @@ final class JavaTargetNavigator {
 			// No explicit method: OfficeFloor uses the class's single public method.
 			PsiMethod sole = solePublicMethod(psiClass);
 			if (sole != null && sole.canNavigate()) {
-				sole.navigate(true);
+				PsiNavigateUtil.navigate(sole);
 				return true;
 			}
 		}
 		if (psiClass.canNavigate()) {
-			psiClass.navigate(true);
+			PsiNavigateUtil.navigate(psiClass);
 			return true;
 		}
 		return false;

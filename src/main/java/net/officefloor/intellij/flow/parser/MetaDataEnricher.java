@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
 import com.intellij.openapi.project.Project;
@@ -59,7 +59,7 @@ public final class MetaDataEnricher {
 		// 1. Under a read action: collect targets + their Java-source metadata + the classpath.
 		List<Target> targets = new ArrayList<>();
 		List<String> classpath = new ArrayList<>();
-		ReadAction.run(() -> {
+		ApplicationManager.getApplication().runReadAction((Runnable) () -> {
 			for (FlowNode node : graph.getNodes()) {
 				if (node.getKind() == NodeKind.PROCEDURE && node.getJavaClassName() != null) {
 					Target target = new Target(node.getId(), node.getJavaClassName(), node.getJavaMethodName());

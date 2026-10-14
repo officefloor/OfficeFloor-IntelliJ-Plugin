@@ -14,12 +14,12 @@ import javax.swing.SwingConstants;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorLocation;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.UserDataHolderBase;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
@@ -163,7 +163,7 @@ public class FlowDiagramEditor extends UserDataHolderBase implements FileEditor 
 	}
 
 	private void rebuild() {
-		FlowGraph parsed = ReadAction.compute(() -> {
+		FlowGraph parsed = ApplicationManager.getApplication().runReadAction((Computable<FlowGraph>) () -> {
 			PsiFile psiFile = PsiManager.getInstance(this.project).findFile(this.file);
 			if (psiFile instanceof YAMLFile) {
 				return new ComposeYamlParser().parse((YAMLFile) psiFile, this.file);

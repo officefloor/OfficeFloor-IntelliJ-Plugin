@@ -2,7 +2,7 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 
 plugins {
     id("java")
-    id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -28,7 +28,6 @@ dependencies {
         // Needed to resolve Java references for "jump to Java class".
         bundledPlugin("com.intellij.java")
 
-        instrumentationTools()
         pluginVerifier()
     }
 

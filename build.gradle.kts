@@ -61,7 +61,7 @@ intellijPlatform {
     }
 
     // Publishing via `./gradlew publishPlugin`. PUBLISH_TOKEN is a Marketplace
-    // permanent token, supplied as a repository secret by the Release workflow.
+    // permanent token, from the OfficeFloor organisation's secrets as well.
     publishing {
         token = secret("PUBLISH_TOKEN")
     }

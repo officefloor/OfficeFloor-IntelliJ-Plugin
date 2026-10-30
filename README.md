@@ -159,12 +159,11 @@ owner:
    with `./gradlew -PpluginVersion=0.1.0 buildPlugin` and upload
    `build/distributions/*.zip` at
    [plugins.jetbrains.com/plugin/add](https://plugins.jetbrains.com/plugin/add).
-3. **Create a permanent token** (Marketplace profile, then *My Tokens*) and add
-   it as the GitHub Actions repository secret `PUBLISH_TOKEN`.
-4. **Signing** (required by the Release workflow) uses the OfficeFloor identity shared
-   by all OfficeFloor plugins: the organisation secrets `CERTIFICATE_CHAIN`,
-   `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`, made and kept up to date by the
-   scripts in [OfficeFloorMaintenance](https://github.com/officefloor/OfficeFloorMaintenance#jetbrains-plugin-signing).
+3. **The secrets** (all required by the Release workflow) are shared by all
+   OfficeFloor plugins: the organisation secrets `PUBLISH_TOKEN`,
+   `CERTIFICATE_CHAIN`, `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`, set by
+   `setup-jetbrains-publishing.sh` in
+   [OfficeFloorMaintenance](https://github.com/officefloor/OfficeFloorMaintenance#publishing-intellij-plugins-to-the-jetbrains-marketplace).
    Don't set them as repository secrets: those would override the organisation's.
 
 After that, each release is a tag. **The tag is the version**: `v0.2.0` builds

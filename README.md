@@ -160,10 +160,12 @@ be done by the plugin's owner:
    [plugins.jetbrains.com/plugin/add](https://plugins.jetbrains.com/plugin/add).
 3. **Create a permanent token** (Marketplace profile, then *My Tokens*) and add
    it as the GitHub Actions repository secret `PUBLISH_TOKEN`.
-4. **Add a signing certificate** (recommended by Marketplace). Follow
-   [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html)
-   to generate a chain and key, then add the repository secrets
-   `CERTIFICATE_CHAIN`, `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`.
+4. **Signing** (recommended by Marketplace) uses the OfficeFloor identity shared
+   by all OfficeFloor plugins: the organisation secrets `CERTIFICATE_CHAIN`,
+   `PRIVATE_KEY` and `PRIVATE_KEY_PASSWORD`, made and kept up to date by the
+   scripts in [OfficeFloorMaintenance](https://github.com/officefloor/OfficeFloorMaintenance#jetbrains-plugin-signing).
+   Don't set them as repository secrets: those would override the organisation's.
+   Without them the plugin is published unsigned.
 
 After that, each new release is automated. Two ways to trigger it:
 

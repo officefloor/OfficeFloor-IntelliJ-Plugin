@@ -50,19 +50,20 @@ intellijPlatform {
     }
 
     // Plugin signing. JetBrains Marketplace strongly recommends signed plugins.
-    // The Release workflow supplies these from repository secrets. They are unset
-    // for local and CI builds, where signPlugin is not invoked, so those builds
-    // are unaffected.
+    // The Release workflow supplies these from the OfficeFloor organisation's
+    // secrets (see officefloor/OfficeFloorMaintenance). A secret that is not set
+    // arrives as an empty variable, which counts as unset, so the plugin is then
+    // published unsigned rather than failing to sign with an empty key.
     signing {
-        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
-        privateKey = providers.environmentVariable("PRIVATE_KEY")
-        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+        certificateChain = secret("CERTIFICATE_CHAIN")
+        privateKey = secret("PRIVATE_KEY")
+        password = secret("PRIVATE_KEY_PASSWORD")
     }
 
     // Publishing via `./gradlew publishPlugin`. PUBLISH_TOKEN is a Marketplace
     // permanent token, supplied as a repository secret by the Release workflow.
     publishing {
-        token = providers.environmentVariable("PUBLISH_TOKEN")
+        token = secret("PUBLISH_TOKEN")
     }
 
     // Run the JetBrains Plugin Verifier against the IDEs recommended for the
@@ -74,6 +75,8 @@ intellijPlatform {
         }
     }
 }
+
+fun secret(name: String) = providers.environmentVariable(name).filter { it.isNotBlank() }
 
 // IDEA 2024.2.4 predates Java 25. On startup its bundled Gradle plugin
 // (com.intellij.gradle) downloads JetBrains' current Gradle/JVM compatibility

@@ -52,8 +52,8 @@ intellijPlatform {
     // Plugin signing. JetBrains Marketplace strongly recommends signed plugins.
     // The Release workflow supplies these from the OfficeFloor organisation's
     // secrets (see officefloor/OfficeFloorMaintenance). A secret that is not set
-    // arrives as an empty variable, which counts as unset, so the plugin is then
-    // published unsigned rather than failing to sign with an empty key.
+    // arrives as an empty variable, which counts as unset; publishPlugin refuses
+    // to run without all of them (below), so nothing is published unsigned.
     signing {
         certificateChain = secret("CERTIFICATE_CHAIN")
         privateKey = secret("PRIVATE_KEY")
@@ -77,6 +77,7 @@ intellijPlatform {
 }
 
 fun secret(name: String) = providers.environmentVariable(name).filter { it.isNotBlank() }
+val publishingSecrets = listOf("PUBLISH_TOKEN", "CERTIFICATE_CHAIN", "PRIVATE_KEY", "PRIVATE_KEY_PASSWORD")
 
 // IDEA 2024.2.4 predates Java 25. On startup its bundled Gradle plugin
 // (com.intellij.gradle) downloads JetBrains' current Gradle/JVM compatibility
@@ -108,6 +109,14 @@ tasks {
     // Never publish a build that has not passed the Plugin Verifier.
     named("publishPlugin") {
         dependsOn("verifyPlugin")
+        // Never publish without the token, or unsigned
+        val secrets = publishingSecrets.associateWith { secret(it) }
+        doFirst {
+            val missing = secrets.filterValues { !it.isPresent }.keys
+            if (missing.isNotEmpty()) {
+                throw GradleException("publishPlugin needs ${missing.joinToString()} (nothing was published)")
+            }
+        }
     }
     wrapper {
         gradleVersion = "8.10.2"

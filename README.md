@@ -9,6 +9,13 @@ next to the text editor, showing the functions flowing down the page with their
 > describes a pipeline of functions that service a request. This plugin turns
 > that YAML into the flow diagram it really is.
 
+## Install
+
+From the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35087-officefloor-rest-view):
+in IntelliJ IDEA (2024.2 or later), open **Settings → Plugins → Marketplace**,
+search for **OfficeFloor REST View**, and click **Install**. The IDE then offers
+each new version as it is released.
+
 ## What it understands
 
 The parser targets the OfficeFloor "compose" / Activity YAML model (as parsed by
@@ -112,6 +119,7 @@ Requires JDK 17.
 ```bash
 ./gradlew test          # unit tests (layout engine)
 ./gradlew buildPlugin    # produces build/distributions/officefloor-rest-view-*.zip
+                         # (installable with Settings → Plugins → ⚙ → Install Plugin from Disk…)
 ./gradlew runIde         # launches a sandbox IDE with the plugin for manual testing
 ```
 

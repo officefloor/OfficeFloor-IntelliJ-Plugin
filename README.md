@@ -147,16 +147,17 @@ First version: read-only diagram with jump-to-source. Possible next steps:
 ## Publishing to JetBrains Marketplace
 
 Signing and publishing are wired into `build.gradle.kts` and the
-[`Release`](.github/workflows/release.yml) workflow, which runs `./gradlew
-publishPlugin` when a GitHub Release is published. A few one-time steps can only
-be done by the plugin's owner:
+[`Release`](.github/workflows/release.yml) workflow, which publishes when a
+version tag is pushed. A few one-time steps can only be done by the plugin's
+owner:
 
 1. **Create a Marketplace vendor account** at
    [plugins.jetbrains.com](https://plugins.jetbrains.com) and sign in with the
    JetBrains account that will own the plugin.
 2. **Upload the first version manually.** A brand-new plugin must be uploaded by
    hand and pass moderation before the API will accept updates. Build the zip
-   with `./gradlew buildPlugin` and upload `build/distributions/*.zip` at
+   with `./gradlew -PpluginVersion=0.1.0 buildPlugin` and upload
+   `build/distributions/*.zip` at
    [plugins.jetbrains.com/plugin/add](https://plugins.jetbrains.com/plugin/add).
 3. **Create a permanent token** (Marketplace profile, then *My Tokens*) and add
    it as the GitHub Actions repository secret `PUBLISH_TOKEN`.
@@ -166,26 +167,25 @@ be done by the plugin's owner:
    scripts in [OfficeFloorMaintenance](https://github.com/officefloor/OfficeFloorMaintenance#jetbrains-plugin-signing).
    Don't set them as repository secrets: those would override the organisation's.
 
-The Release workflow checks all four secrets first and fails, before bumping the
-version or publishing anything, if any is missing. `publishPlugin` refuses to run
-without them too, so the plugin is never published unsigned.
-
-After that, each new release is automated. Two ways to trigger it:
-
-- **Publish a GitHub Release** (after bumping `pluginVersion` in
-  `gradle.properties`). The current version is published as-is.
-- **Run it from the Actions tab** (*Release → Run workflow*). Leave `auto_bump`
-  off to publish the current `pluginVersion`, or turn it on to bump the version
-  first. `bump_level` chooses `patch` (default), `minor` or `major`; the workflow
-  updates `gradle.properties` and commits the new version back to `main` before
-  it signs and uploads.
-
-Either way the workflow runs `verifyPlugin`, signs, and uploads. You can also
-publish locally with the same environment variables set:
+After that, each release is a tag. **The tag is the version**: `v0.2.0` builds
+and publishes the plugin as `0.2.0` (passed as `-PpluginVersion`).
+`gradle.properties` holds only the development version (`0.0.0-SNAPSHOT`) and is
+never edited for a release.
 
 ```bash
-PUBLISH_TOKEN=... ./gradlew publishPlugin
+# 1. Add a <li><b>0.2.0</b>: …</li> entry to the change-notes in
+#    src/main/resources/META-INF/plugin.xml, and commit it.
+# 2. Tag that commit and push the tag.
+git tag v0.2.0
+git push origin v0.2.0
 ```
+
+The workflow checks everything first and publishes nothing unless all pass: the
+four secrets, the tag being `vMAJOR.MINOR.PATCH`, the change-notes entry, the
+tests, and the [Plugin Verifier](.github/workflows/verify-plugin.yml) against
+every IDE of the plugin's range (one job per IDE). Only then does it sign and
+upload. `publishPlugin` also refuses to run without the four secrets, so the
+plugin is never published unsigned.
 
 ## License
 

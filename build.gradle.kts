@@ -66,12 +66,21 @@ intellijPlatform {
         token = secret("PUBLISH_TOKEN")
     }
 
-    // Run the JetBrains Plugin Verifier against the IDEs recommended for the
-    // plugin's compatibility range. publishPlugin depends on verifyPlugin below,
-    // so verification runs before every publish.
+    // The JetBrains Plugin Verifier. -PverifyIde=IC:2024.2.6 or
+    // IntellijIdea:2026.2.3 verifies against that one IDE: the IDEs together do not
+    // fit on one runner's disk, so the Verify plugin workflow runs one per job, and
+    // the Release workflow publishes only after all pass. Without it, every IDE the
+    // platform recommends for the plugin's compatibility range.
     pluginVerification {
         ides {
-            recommended()
+            val one = providers.gradleProperty("verifyIde").orNull
+            if (one != null) {
+                val (type, version) = one.split(":", limit = 2)
+                // a type by its name (IntellijIdea, the unified IDE from 2025.3) or its code (IC)
+                create(IntelliJPlatformType.values().firstOrNull { it.name == type } ?: IntelliJPlatformType.fromCode(type), version)
+            } else {
+                recommended()
+            }
         }
     }
 }
@@ -106,10 +115,10 @@ tasks {
     named("disableBundledGradlePlugin") {
         mustRunAfter("prepareSandbox")
     }
-    // Never publish a build that has not passed the Plugin Verifier.
+    // publishPlugin does not run verifyPlugin itself (every IDE does not fit on one
+    // runner); the Release workflow publishes only after the per-IDE verify jobs
+    // pass. It never publishes without the token, or unsigned.
     named("publishPlugin") {
-        dependsOn("verifyPlugin")
-        // Never publish without the token, or unsigned
         val secrets = publishingSecrets.associateWith { secret(it) }
         doFirst {
             val missing = secrets.filterValues { !it.isPresent }.keys

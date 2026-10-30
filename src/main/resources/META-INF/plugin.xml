@@ -26,6 +26,8 @@
 
     <change-notes><![CDATA[
         <ul>
+          <li><b>0.1.1</b>: Signed by OfficeFloor: each release now carries the
+          OfficeFloor signature as well as JetBrains'.</li>
           <li><b>0.1.0</b>: Initial release. Flow diagram with control-flow and
           data-flow overlays, and jump-to-source navigation.</li>
         </ul>

@@ -1,5 +1,11 @@
 # OfficeFloor REST View — IntelliJ plugin
 
+> **Moved.** This plugin now lives in
+> [OfficeFloorSlim](https://github.com/officefloor/OfficeFloorSlim/tree/main/intellij), with the
+> same plugin ID, and is released from there. From 0.2.1 it is called **OfficeFloor IoCC** on the
+> [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35087), and installed copies update
+> to it. This repository is archived: it is the record of releases 0.1.0 and 0.1.1.
+
 Visualises OfficeFloor **WoOF / Activity "compose" YAML** configuration as an
 auto-laid-out flow diagram. Open a configuration file and a **Flow** tab appears
 next to the text editor, showing the functions flowing down the page with their
